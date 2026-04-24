@@ -274,3 +274,37 @@ Insufficient number of concepts loaded N - Snapshot archive damaged?
 ```bash
 rm -rf ~/re-run/snapshots/<project-name>
 ```
+
+The safest default is to clear `snapshots/` on every run (trades ~5 min of extra load time for avoiding stale-cache issues). A one-liner prelude in your run script:
+
+```powershell
+# PowerShell
+if (Test-Path ".\snapshots") { Remove-Item -Recurse -Force ".\snapshots" }
+```
+
+```bash
+# Bash
+rm -rf ./snapshots
+```
+
+### Expected Archive Filename Drift
+
+Snowstorm's branch metadata advertises the specific release archive to load. As new releases are promoted, the filename the loader looks for moves forward. If you hit:
+
+```
+FileNotFoundException: releases\SnomedCT_ManagedServiceAU_PRODUCTION_AU1000036_<newer-date>.zip
+```
+
+…but only have the previous month's archive, options are:
+
+1. **Download the new archive** (authoritative — required for production validation).
+2. **Copy/rename a daily build to the expected production name** (quick unblock, not production-faithful):
+
+   ```powershell
+   Copy-Item "releases\SnomedCT_ManagedServiceAU_DAILYBUILD_BETA_AU1000036_<date>.zip" `
+             "releases\SnomedCT_ManagedServiceAU_PRODUCTION_AU1000036_<date>.zip"
+   ```
+
+   This triggers the full-edition double-load (see above) — expect stubs and spurious MRCM integrity warnings. Useful for iterating on report *logic* but not for validating *data*.
+
+Also note: the loader filename may flip between `EXT_ONLY_SnomedCT_*` and `SnomedCT_*` (no prefix) depending on how Snowstorm's metadata is configured. Match the filename it logs, character-for-character.
